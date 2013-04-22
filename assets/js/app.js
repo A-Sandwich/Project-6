@@ -64,6 +64,37 @@
 		}
 	});
 	
+	$('#editSettings').submit(function(e) {
+		
+		var $thisSetting      = $(this);
+		var $icon   = $thisSetting.find('#iconUrl');
+		var $sizeX = $thisSetting.find('#iconSizeWidth');
+		var $sizeY = $thisSetting.find('#iconSizeHeight');
+		var $type = $thisSetting.find('#mapType');
+		var $color = $thisSetting.find('#color')
+		
+		var settings = [
+			$icon.val(),
+			$sizeX.val(),
+			$sizeY.val(),
+			$type.val(),
+			$color.val()
+		];
+		
+		
+		var object = {
+			icon: $icon.val(),
+			iconSizeX: $sizeX.val(),
+			iconSizeY: $sizeY.val(),
+			mapType: $type.val(),
+			color: $color.val()
+		}
+		//Send information to mobileMap to be used
+		map.editSettings($icon.val(), $sizeX.val(), $sizeY.val(), $type.val(), $color.val());
+		
+		e.preventDefault();
+	});
+	
 	$('#search').submit(function(e) {
 		var $thisLocation      = $(this);
 		var $street   = $thisLocation.find('#search');

@@ -12,6 +12,14 @@ h2{
 	box-sizing: border-box;
 }
 
+.inline{
+	-webkit-box-sizing: border-box;
+	/*-o-box-sizing: border-box;*/
+	-moz-box-sizing: border-box;
+	display: inline;
+	width: 10%;
+}
+
 .hidden{
 	display:none;
 }

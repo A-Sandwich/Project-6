@@ -1,13 +1,16 @@
 ;(function($) {
 	
 	var MobileMap = function(object, options) {
+	
 		centerCircle = new google.maps.Circle({fillColor: 'red'});
+		//centerCircle.fillColor = 'blue';
 		var circles = [];
 		
 		var centerCircLat;
 		var centerCircLng;
 		var tf = false;
 		var oldZoom = 0;
+		var circleZoom = 0;
 		//var center = new google.maps.LatLng(39.76, -86.15);
 		var radius, hasLoaded = false, zoom;
 		var $thisMap = $(object);
@@ -21,6 +24,10 @@
 			callback: {
 				newMarker: function(marker, lat, lng) {},	//calls new marker
 			},
+			mapType: "TERRAIN",
+			iconUrl: 'assets/images/marker.png',
+			iconSizeX: 21,
+			iconSizeY: 43,
 			db: new localStorageDB("MapIndex", localStorage),//storage variable
 			bounds: new google.maps.LatLngBounds(),
 			editIndex: false,
@@ -63,11 +70,177 @@
 			    thisMap.db.commit();
 			}
 			
+			
+			
+			if(!thisMap.db.tableExists('options')) {	//If a table does not exist then:		
+				console.log("Options being initialized with thisMap");
+			    thisMap.db.createTable("options", ["icon", "iconSizeWidth", "iconSizeHeight", "mapType", "color"]);
+				thisMap.db.insert("options", {icon: thisMap.iconUrl, iconSize: thisMap.iconSize, mapType: thisMap.mapType});
+			    thisMap.db.commit();
+			}else{
+				console.log("initializing mapType");
+				thisMap.db.query("options", function(row){
+					//console.log(thisMap.db.rowCount("options"));
+					console.log(row);
+					console.log(row.mapType);
+					if(row.mapType == "TERRAIN"){
+						thisMap.map.setMapTypeId(google.maps.MapTypeId.TERRAIN);
+					}else if(row.mapType == "SATELLITE"){
+						thisMap.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+					}else if(row.mapType == "ROADMAP"){
+						thisMap.map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+					}else if(row.mapType == "HYBRID"){
+						thisMap.map.setMapTypeId(google.maps.MapTypeId.HYBRID);
+					}
+					
+					if(row.iconSizeWidth > 0 && row.iconSizeHeight > 0){
+						thisMap.iconSizeX = row.iconSizeWidth;
+						thisMap.iconSizeY = row.iconSizeHeight;
+					}
+					
+					if(row.icon != null && row.icon != ""){
+						thisMap.iconUrl = row.icon;
+						
+					}
+					
+					if(row.color != null && row.color != ""){
+						centerCircle.fillColor = row.color;
+					}
+				});
+			}
+			//type = thisMap.mapType;
+			//thisMap.map.setMapTypeId(thisMap.mapType);
 			thisMap.db.query('markers', function(row) {//Add new marker to table (That exists)
 				thisMap.newMarker(row.lat, row.lng, row.ID);
 			});
 			//thisMap.map.setBounds(lat, lng);
 			return thisMap.map;
+		}
+		
+		thisMap.editSettings = function(icon, sizeX, sizeY, mapType, color){
+			thisMap.db.query("options", function(row){
+				previousMapType = row.mapType;
+				previousIcon = row.icon;
+				previousSizeX = row.iconSizeWidth;
+				previousSizeY = row.iconSizeHeight;
+				previousColor = row.color;
+			});
+			console.log(color);
+			if(color != undefined){
+				cent = centerCircle.getCenter();
+				centerCircle.setMap(null);
+				thisMap.changeCircleColor(color);
+				centerCircle.setMap(thisMap.map);
+				thisMap.map.setZoom(thisMap.circleZoom);
+				
+				
+			}
+			
+			thisMap.mapType = mapType;
+			if(mapType != undefined){
+				if(mapType == "TERRAIN"){
+					thisMap.map.setMapTypeId(google.maps.MapTypeId.TERRAIN);
+				}else if(mapType == "SATELLITE"){
+					thisMap.map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+				}else if(mapType == "ROADMAP"){
+					thisMap.map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+				}else if(mapType == "HYBRID"){
+					thisMap.map.setMapTypeId(google.maps.MapTypeId.HYBRID);
+				}
+			}else{
+				//mapType = null;
+			}
+			
+			console.log("X: "+sizeX+", y: "+sizeY);
+			if(sizeX > 0 && sizeY > 0){
+				console.log("Changing x + y size");
+				new google.maps.Size(sizeX, sizeY);
+			}else{
+				sizeX = null;
+				sizeY = null;
+			}// end if else
+			
+			console.log(icon);
+			if(icon != undefined && icon != ""){
+				console.log("changing icon");
+				arraySize = thisMap.markers.length;
+				console.log(arraySize);
+				for(i=0; i<arraySize; i++){
+					thisMap.markers[i].setIcon(icon);
+				}//end for
+			}else{
+				icon = null;
+			}//end if else
+			
+			//Save Map type settings:
+			thisMap.db.update("options", {mapType: previousMapType}, function(row){
+				
+				if(mapType != null){
+					row.mapType = thisMap.mapType;
+					console.log(row.mapType);
+				}
+				return row;
+			});
+			
+			thisMap.db.update("options", {icon: previousIcon}, function(row){
+				
+				if(icon != null){
+					console.log("updating icon in row");
+					row.icon = icon;
+				}
+				return row;
+			});
+			
+			thisMap.db.update("options", {iconSizeWidth: previousSizeX}, function(row){
+				if(sizeX != null){
+					row.iconSizeWidth = sizeX;
+					thisMap.iconSizeX = sizeX;
+				}
+				return row;
+			});
+			
+			thisMap.db.update("options", {iconSizeHeight: previousSizeY}, function(row){
+				if(sizeY != null){
+					row.iconSizeHeight = sizeY;
+					thisMap.iconSizeY = sizeY;
+					length = thisMap.markers.length;
+					marker.setIcon({
+						url: thisMap.iconUrl,
+						scaledSize: new google.maps.Size(thisMap.iconSizeX, thisMap.iconSizeY)
+					});
+					
+					for(i=0; i<length; i++){
+						marker = thisMap.markers[i];
+						marker.setIcon({
+							url: thisMap.iconUrl,
+							scaledSize: new google.maps.Size(thisMap.iconSizeX, thisMap.iconSizeY)
+						});
+						thisMap.markers[i] = marker;						
+					}//end for
+				}//end if
+				//console.log("updated row"+row); 	
+				return row;
+			});
+			
+			thisMap.db.update("options", {color: previousColor}, function(row){
+				
+				if(mapType != null){
+					row.color = color;
+					//console.log(row.color);
+				}
+				return row;
+			});
+			
+			thisMap.db.commit();
+			
+			thisMap.home();
+			//if(
+				thisMap.map.setCenter(cent);
+			
+		}
+		
+		thisMap.changeCircleColor = function(newColor){
+			centerCircle.fillColor = newColor;
 		}
 		
 		thisMap.removeCircle = function(){
@@ -81,7 +254,9 @@
 		
 		//delete later -- for testing
 		thisMap.drop = function(){
+			console.log(thisMap.db.tableCount());
 			thisMap.db.drop();
+			//console.log(thisMap.db.tableCount());
 			alert("database has been purged, please refresh the page.");
 		}
 		
@@ -111,7 +286,10 @@
 			});
 			
 			thisMap.callback.newMarker(marker, lat, lng, id);
-			
+			marker.setIcon({
+					url: thisMap.iconUrl,
+					scaledSize: new google.maps.Size(thisMap.iconSizeX, thisMap.iconSizeY)
+				});
 			thisMap.markers.push(marker);//Puts marker on map
 			thisMap.bounds.extend(latLng);//extends bounds of map to new point.
 			thisMap.map.fitBounds(thisMap.bounds);//Adjusts map's viewport
@@ -141,8 +319,7 @@
 					
 					if(hasLatLng) {
 						alert('This location has already been entered');	
-					}
-					else {						
+					}else {						
 						thisMap.newMarker(lat, lng);
 						
 						if(typeof callback == "function") {
@@ -317,18 +494,25 @@
 				thisMap.map.setCenter(center);
 				if(dist == 100){
 					thisMap.map.setZoom(7);
+					thisMap.circleZoom = 7;
 				}else if(dist == 50){
 					thisMap.map.setZoom(8);
+					thisMap.circleZoom = 8;
 				}else if(dist == 25){
 					thisMap.map.setZoom(9);
+					thisMap.circleZoom = 9;
 				}else if(dist == 15){
 					thisMap.map.setZoom(10);
+					thisMap.circleZoom = 10;
 				}else if(dist == 10){
 					thisMap.map.setZoom(10);
+					thisMap.circleZoom = 10;
 				}else if(dist == 5){
 					thisMap.map.setZoom(11);
+					thisMap.circleZoom = 11;
 				}else{
 					thisMap.map.setZoom(7);
+					thisMap.circleZoom = 7;
 				}		
 				
 			
